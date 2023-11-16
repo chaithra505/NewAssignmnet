@@ -1,0 +1,31 @@
+package com.sonata.service;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.sonata.dto.ShoppingCartRequest;
+import com.sonata.dto.ShoppingCartResponce;
+
+@Service
+public class CartService {
+	
+	@Autowired
+	private WebClient.Builder webBuilder;
+
+	public ShoppingCartResponce procesAddRequest(int uId, List<ShoppingCartRequest> reqProductList) {
+		//call product-service
+		List<Product> ProductServiceList=webBuilder.build()
+		
+		//calculate total cost
+		//create cartentity
+		//save cartentity
+		//create api responce
+		
+		return null;
+	}
+	
+	
+
+}

@@ -1,0 +1,27 @@
+package com.sonata.controller;
+
+import java.util.List;
+
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.sonata.dto.ShoppingCartRequest;
+
+@RestController
+@RequestMapping("cart")
+public class CartController {
+	
+	@PostMapping("/{uId}/products")
+	  public  ResponseEntity addProductToCart(
+			  @PathVariable int uId,
+			  @RequestBody List<ShoppingCartRequest> reqProductList) {
+				return null;
+	
+	     
+}
+
+}

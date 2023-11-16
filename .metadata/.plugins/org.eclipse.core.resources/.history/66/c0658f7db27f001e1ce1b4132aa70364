@@ -1,0 +1,64 @@
+package com.sonata.service;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sonata.dto.ShoppingCartRequest;
+import com.sonata.dto.ShoppingCartResponce;
+import com.sonata.exception.ProductNotFoundException;
+import com.sonata.exception.UserNotFoundException;
+import com.sonata.model.Cart;
+import com.sonata.model.Product;
+import com.sonata.model.UserDto;
+import com.sonata.repo.CartRepo;
+
+@Service
+public class CartService {
+	
+	@Autowired
+	 private  CartRepo cartRepo;
+
+	 @Autowired
+	   private RestTemplate restTemplate;
+	 
+	 
+	
+
+
+	public ShoppingCartResponce processAddRequest(int userId, List<ShoppingCartRequest> shoppingCartRequest) {
+		Cart cart = cartRepo.findByUserId(userId);
+		 
+		 
+		 if (cart == null) {
+	            cart = new Cart();
+	            cart.setUserId(userId);
+	        }
+		 
+		 for (ShoppingCartRequest request : shoppingCartRequest) {
+	            int productId = request.getpId();
+	            int quantity = request.getQuantity();
+	} 
+	 
+	
+
+	   
+	
+
+	 
+	
+	
+	
+}

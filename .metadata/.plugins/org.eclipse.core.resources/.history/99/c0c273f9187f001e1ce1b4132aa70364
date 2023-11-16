@@ -1,0 +1,22 @@
+package com.sonata.model;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name="cart_details")
+public class Cart {
+	private int cartId;
+	private String CartName;
+	private int uId;
+	private int pId;
+	private int reqQuantity;
+	
+	@Column(name="ava_quantity")
+	private int availableQuantity;
+	
+	private double price;
+	
+
+}

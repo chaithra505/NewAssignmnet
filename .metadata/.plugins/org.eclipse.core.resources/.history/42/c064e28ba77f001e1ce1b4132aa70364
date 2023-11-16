@@ -1,0 +1,147 @@
+package com.sonata.service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sonata.dto.ShoppingCartRequest;
+import com.sonata.dto.ShoppingCartResponce;
+import com.sonata.exception.UserNotFoundException;
+import com.sonata.model.Cart;
+import com.sonata.model.Product;
+import com.sonata.model.UserDto;
+import com.sonata.repo.CartRepo;
+
+@Service
+public class CartService {
+
+    @Autowired
+    private WebClient.Builder webBuilder;
+
+    @Autowired
+    private CartRepo cartrepo;
+
+    public ShoppingCartResponce processAddRequest(int userId, List<ShoppingCartRequest> shoppingCartRequest) {
+        // Call user-service to get user information
+        UserDto userdto = getUserById(userId);
+
+        if (user == null) {
+            throw new UserNotFoundException("User not found with ID: " + userId);
+        }
+
+        // Call product-service
+        String productServiceUrl = "http://localhost:8082/product/product-details/{pId}";
+
+        List<Product> productServiceList = shoppingCartRequest.stream()
+                .map(request -> webBuilder.build()
+                        .get()
+                        .uri(productServiceUrl, request.getpId())
+                        .retrieve()
+                        .bodyToMono(Product.class)
+                        .block())
+                .collect(Collectors.toList());
+
+        // Calculate total cost
+        final double[] totalCost = {0.0};
+        productServiceList.forEach(psl -> {
+            shoppingCartRequest.forEach(scr -> {
+                if (psl.getpId() == scr.getpId()) {
+                    psl.setQuantity(scr.getQuantity());
+                    totalCost[0] = totalCost[0] + psl.getPrice() * scr.getQuantity();
+                }
+            });
+        });
+
+        // Create cart
+        int randomCartId = (int) (Math.random() * Math.pow(10, 10));
+        Cart cart = null;
+
+        try {
+            cart = new Cart();
+            cart.setUserId(userId);
+            cart.setCartId(randomCartId);
+            cart.setTotalCost(totalCost[0]);
+            cart.setProducts(new ObjectMapper().writeValueAsString(productServiceList));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Error while processing JSON for ProductServiceList", e);
+        }
+
+        
+    
+        // Save the cart
+        cartrepo.save(cart);
+
+        // Create API response
+        ShoppingCartResponce response = new ShoppingCartResponce();
+        response.setCartId(cart.getCartId());
+        response.setUserId(cart.getUserId());
+        response.setTotalItems(cart.getTotalItems());
+        response.setTotalCost(cart.getTotalCost());
+        response.setProducts(productServiceList);
+
+        return response;
+    }
+
+ 
+
+    
+    private User getUserById(int userId) {
+        // Call user-service to get user information
+        String userServiceUrl = "http://localhost:8081/user/{userId}";
+
+        return webBuilder.build()
+                .get()
+                .uri(userServiceUrl, userId)
+                .retrieve()
+                .bodyToMono(User.class)
+                .block();
+    }
+    
+    
+    
+    public List<ShoppingCartResponce> getShoppingCart(int userId) {
+        List<Cart> carts = cartrepo.findByUserId(userId);
+        List<ShoppingCartResponce> cartResponse = new ArrayList<>();
+        ObjectMapper mapper = new ObjectMapper();
+
+        // Grouping the carts by cartId
+        Map<Integer, List<Cart>> cartsByCartId = carts.stream()
+                .collect(Collectors.groupingBy(Cart::getCartId));
+
+        // Creating ShoppingCartResponse for each cartId group
+        cartsByCartId.forEach((cartId, cartList) -> {
+            ShoppingCartResponce response = new ShoppingCartResponce();
+            response.setCartId(cartId);
+            response.setUserId(userId);
+            response.setTotalItems(cartList.stream().mapToInt(Cart::getTotalItems).sum());
+            response.setTotalCost(cartList.stream().mapToDouble(Cart::getTotalCost).sum());
+
+            // Combining products from all carts with the same cartId
+            List<Product> combinedProducts = cartList.stream()
+                    .flatMap(cart -> {
+                        try {
+                            return mapper.readValue(cart.getProducts(), new TypeReference<List<Product>>() {}).stream();
+                        } catch (JsonProcessingException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .collect(Collectors.toList());
+
+            response.setProducts(combinedProducts);
+            cartResponse.add(response);
+        });
+
+        return cartResponse;
+    }
+
+
+}

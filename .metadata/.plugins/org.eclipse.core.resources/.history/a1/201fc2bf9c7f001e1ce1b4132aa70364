@@ -1,0 +1,132 @@
+package com.sonata.service;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sonata.dto.ShoppingCartRequest;
+import com.sonata.dto.ShoppingCartResponce;
+import com.sonata.model.Cart;
+import com.sonata.model.Product;
+import com.sonata.repo.CartRepo;
+
+
+
+@Service
+public class CartService {
+
+    @Autowired
+    private WebClient.Builder webBuilder;
+
+    @Autowired
+    private CartRepo cartrepo;
+
+    public ShoppingCartResponce processAddRequest(int userId, List<ShoppingCartRequest> shoppingCartRequest) {
+        ObjectMapper mapper = new ObjectMapper();
+
+        // Check if a cart already exists for the user
+        List<Cart> existingCarts = cartrepo.findByUserId(userId);
+
+        // Call product-service
+        String productserviceurl = "http://localhost:8082/product/product-details/{pId}";
+
+        List<Product> productServiceList = shoppingCartRequest.stream()
+                .map(request -> webBuilder.build()
+                        .get()
+                        .uri(productserviceurl, request.getpId())
+                        .retrieve()
+                        .bodyToMono(Product.class)
+                        .block())
+                .collect(Collectors.toList());
+
+        // Calculate total cost
+        final double[] totalCost = {0.0};
+        productServiceList.forEach(psl -> {
+            shoppingCartRequest.forEach(scr -> {
+                if (psl.getpId() == scr.getpId()) {
+                    psl.setQuantity(scr.getQuantity());
+                    totalCost[0] = totalCost[0] + psl.getPrice() * scr.getQuantity();
+                }
+            });
+        });
+
+        // Create or update the cart
+        Cart cart;
+        if (!existingCarts.isEmpty()) {
+            cart = existingCarts.get(0);
+        } else {
+            int randomCartId = (int) (Math.random() * Math.pow(10, 10));
+            cart = new Cart();
+            cart.setUserId(userId);
+            cart.setCartId(randomCartId);
+        }
+
+        cart.setTotalCost(totalCost[0]);
+        cart.setProducts(mapper.writeValueAsString(productServiceList));
+
+        // Save the cart to the repository
+        cartrepo.save(cart);
+
+        // Create API response
+        ShoppingCartResponce response = new ShoppingCartResponce();
+        response.setCartId(cart.getCartId());
+        response.setUserId(cart.getUserId());
+        response.setTotalItems(cart.getTotalItems());
+        response.setTotalCost(cart.getTotalCost());
+        response.setProducts(productServiceList);
+
+        return response;
+    }
+
+    public List<ShoppingCartResponce> getShoppingCart(int userId) {
+        List<Cart> carts = cartrepo.findByUserId(userId);
+        List<ShoppingCartResponce> cartResponse = new ArrayList<>();
+        ObjectMapper mapper = new ObjectMapper();
+
+        for (Cart cart : carts) {
+            ShoppingCartResponce response = new ShoppingCartResponce();
+            response.setCartId(cart.getCartId());
+            response.setUserId(cart.getUserId());
+            response.setTotalItems(cart.getTotalItems());
+            response.setTotalCost(cart.getTotalCost());
+
+            try {
+                List<Product> productServiceList = mapper.readValue(cart.getProducts(), new TypeReference<List<Product>>() {
+                });
+                response.setProducts(productServiceList);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+
+            cartResponse.add(response);
+        }
+
+        return cartResponse;
+    }
+
+    public ShoppingCartResponce getUserCart(int userId) {
+        List<Cart> userCarts = cartrepo.findByUserId(userId);
+
+        if (!userCarts.isEmpty()) {
+            Cart userCart = userCarts.get(0);
+            ShoppingCartResponce response = new ShoppingCartResponce();
+
+            response.setUserId(userId);
+            response.setCartId(userCart.getCartId());
+            response.setTotalItems(userCart.getTotalItems());
+            response.setTotalCost(userCart.getTotalCost());
+            response.setProducts(userCart.getProducts());
+
+            return response;
+        } else {
+            return null;
+        }
+    }
+}

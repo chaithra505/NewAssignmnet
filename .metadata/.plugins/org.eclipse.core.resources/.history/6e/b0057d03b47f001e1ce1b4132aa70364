@@ -1,0 +1,80 @@
+package com.sonata.service;
+
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+
+import com.sonata.dto.ShoppingCartRequest;
+import com.sonata.dto.ShoppingCartResponce;
+import com.sonata.model.Cart;
+import com.sonata.model.Product;
+import com.sonata.repo.CartRepo;
+
+@Service
+public class CartService {
+	
+	@Autowired
+	 private  CartRepo cartRepo;
+
+	 @Autowired
+	   private RestTemplate restTemplate;
+	 
+	 
+	
+
+
+	 public ShoppingCartResponce processAddRequest(int userId, List<ShoppingCartRequest> shoppingCartRequest) {
+		    Cart cart = cartRepo.findByUserId(userId);
+
+		    if (cart == null) {
+		        cart = new Cart();
+		        cart.setUserId(userId);
+		    }
+
+		    for (ShoppingCartRequest request : shoppingCartRequest) {
+		        int productId = request.getpId();
+		        int quantity = request.getQuantity();
+
+		        Product existingItem = cart.findCartItemByProductId(productId);
+
+		        if (existingItem != null) {
+		            existingItem.setQuantity(existingItem.getQuantity() + quantity);
+		        } else {
+		            Product product = getProductDetailsFromProductService(productId);
+
+		            if (product != null) {
+		                Product newItem = new Product(); 
+		                newItem.setQuantity(quantity);
+		                cart.getCartItems().add(newItem);
+		            }
+		        }
+		    }
+
+		    cartRepo.save(cart);
+		    return createShoppingCartResponse(cart);
+		}
+
+		private Product getProductDetailsFromProductService(int pId) {
+			   String productServiceUrl = "http://localhost:8082/product/product-details/{pId}";
+
+		        // Replace {productId} with the actual value
+		        return restTemplate.getForObject(productServiceUrl, Product.class, pId);
+		   
+		}
+
+		
+		
+		private ShoppingCartResponce createShoppingCartResponse(Cart cart) {
+		    
+		    return new ShoppingCartResponce();
+		}
+
+	
+
+	 
+	
+	
+	
+}

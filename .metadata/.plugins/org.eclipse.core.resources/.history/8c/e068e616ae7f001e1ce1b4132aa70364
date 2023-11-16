@@ -1,0 +1,176 @@
+package com.sonata.service;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sonata.dto.ShoppingCartRequest;
+import com.sonata.dto.ShoppingCartResponce;
+import com.sonata.exception.ProductNotFoundException;
+import com.sonata.exception.UserNotFoundException;
+import com.sonata.model.Cart;
+import com.sonata.model.Product;
+import com.sonata.model.UserDto;
+import com.sonata.repo.CartRepo;
+
+@Service
+public class CartService {
+	
+	@Autowired
+	 private  CartRepo cartrepo;
+
+	
+	 @Autowired
+	    private WebClient.Builder webClientBuilder;
+
+	   
+	 
+	 // Add product to cart
+	    public void addProductToCart(int userId, int pId) {
+	        // Calling the user microservice to check if the user exists
+	        ResponseEntity<UserDto> userResponse = webClientBuilder
+	                .build()
+	                .get()
+	                .uri("http://user-microservice/users/{userId}", userId)
+	                .retrieve()
+	                .toEntity(UserDto.class)
+	                .block();
+
+	        if (userResponse.getStatusCode() == HttpStatus.OK) {
+	            // Call product microservice to get product details
+	            ResponseEntity<Product> productResponse = webClientBuilder
+	                    .build()
+	                    .get()
+	                    .uri("http://product-microservice/products/{pId}", pId)
+	                    .retrieve()
+	                    .toEntity(Product.class)
+	                    .block();
+
+	            if (productResponse.getStatusCode() == HttpStatus.OK) {
+	                            } else {
+	              
+	                throw new ProductNotFoundException("Product not found");
+	            }
+	        } else {
+	            // Handle the case where the user is not found
+	            throw new UserNotFoundException("User not found");
+	        }
+	    }
+
+	    
+	    
+	    
+	    
+	    //new code
+	    
+	    
+	    public ShoppingCartResponce processAddRequest(int userId, List<ShoppingCartRequest> shoppingCartRequest) {
+	        ObjectMapper mapper = new ObjectMapper();
+
+	        List<Cart> existingCarts = cartrepo.findByUserId(userId);
+
+	        // Call product-service
+	        String productServiceUrl = "http://localhost:8082/product/product-details/{pId}";
+
+	        List<Product> productServiceList = shoppingCartRequest.stream()
+	                .map(request -> webBuilder.build()
+	                        .get()
+	                        .uri(productServiceUrl, request.getpId())
+	                        .retrieve()
+	                        .bodyToMono(Product.class)
+	                        .block())
+	                .collect(Collectors.toList());
+
+	        // Calculate total cost
+	        final double[] totalCost = {0.0};
+	        productServiceList.forEach(psl -> {
+	            shoppingCartRequest.forEach(scr -> {
+	                if (psl.getpId() == scr.getpId()) {
+	                    psl.setQuantity(scr.getQuantity());
+	                    totalCost[0] = totalCost[0] + psl.getPrice() * scr.getQuantity();
+	                }
+	            });
+	        });
+
+	        // Create cart
+	        int randomCartId = (int) (Math.random() * Math.pow(10, 10));
+	        Cart cart = new Cart();
+	        cart.setUserId(userId);
+	        cart.setCartId(randomCartId);
+	        cart.setTotalCost(totalCost[0]);
+	        cart.setProducts(mapper.writeValueAsString(productServiceList));
+
+	        // Save the cart
+	        cartrepo.save(cart);
+
+	        // Create API response
+	        ShoppingCartResponce response = new ShoppingCartResponce();
+	        response.setCartId(cart.getCartId());
+	        response.setUserId(cart.getUserId());
+	        response.setTotalItems(cart.getTotalItems());
+	        response.setTotalCost(cart.getTotalCost());
+	        response.setProducts(productServiceList);
+
+	        return response;
+	    }
+
+	    public List<ShoppingCartResponse> getShoppingCart(int userId) {
+	        List<Cart> carts = cartRepo.findByUserId(userId);
+	        List<ShoppingCartResponse> cartResponse = new ArrayList<>();
+	        ObjectMapper mapper = new ObjectMapper();
+
+	        for (Cart cart : carts) {
+	            ShoppingCartResponse response = new ShoppingCartResponse();
+	            response.setCartId(cart.getCartId());
+	            response.setUserId(cart.getUserId());
+	            response.setTotalItems(cart.getTotalItems());
+	            response.setTotalCost(cart.getTotalCost());
+
+	            try {
+	                List<Product> productServiceList = mapper.readValue(cart.getProducts(), new TypeReference<List<Product>>() {
+	                });
+	                response.setProducts(productServiceList);
+	            } catch (JsonProcessingException e) {
+	                throw new RuntimeException(e);
+	            }
+
+	            cartResponse.add(response);
+	        }
+
+	        return cartResponse;
+	    }
+
+	    public ShoppingCartResponce getUserCart(int userId) {
+	        List<Cart> userCarts = cartrepo.findByUserId(userId);
+
+	        if (!userCarts.isEmpty()) {
+	            // Assuming you want to take the first cart if there are multiple (you might want to handle this differently)
+	            Cart userCart = userCarts.get(0);
+	            ShoppingCartResponce response = new ShoppingCartResponce();
+
+	            response.setUserId(userId);
+	            response.setCartId(userCart.getCartId());
+	            response.setTotalItems(userCart.getTotalItems());
+	            response.setTotalCost(userCart.getTotalCost());
+	            response.setProducts(userCart.getProducts());
+
+	            return response;
+	        } else {
+	            return null; // No cart found for the user
+	        }
+	    }
+	
+	    
+	    
+	  
+	
+	
+	
+}

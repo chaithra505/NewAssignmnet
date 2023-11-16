@@ -1,0 +1,74 @@
+package com.sonata.service;
+
+import java.util.Collections;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.sonata.exception.ProductNotFoundException;
+import com.sonata.exception.UserNotFoundException;
+import com.sonata.model.Product;
+import com.sonata.model.UserDto;
+import com.sonata.repo.CartRepo;
+
+@Service
+public class CartService {
+	
+	@Autowired
+	 private  CartRepo cartrepo;
+	
+	
+	
+	 @Autowired
+	    private WebClient.Builder webClientBuilder;
+
+	    // Add product to cart
+	    public void addProductToCart(int userId, int productId) {
+	        // Calling the user microservice to check if the user exists
+	        ResponseEntity<UserDto> userResponse = webClientBuilder
+	                .build()
+	                .get()
+	                .uri("http://user-microservice/users/{userId}", userId)
+	                .retrieve()
+	                .toEntity(UserDto.class)
+	                .block();
+
+	        if (userResponse.getStatusCode() == HttpStatus.OK) {
+	            // Call product microservice to get product details
+	            ResponseEntity<Product> productResponse = webClientBuilder
+	                    .build()
+	                    .get()
+	                    .uri("http://product-microservice/products/{productId}", productId)
+	                    .retrieve()
+	                    .toEntity(Product.class)
+	                    .block();
+
+	            if (productResponse.getStatusCode() == HttpStatus.OK) {
+	                // TODO: Add the product to the user's cart (update database or use a caching mechanism)
+	                // You may need to handle duplicate products, update quantities, etc.
+	            } else {
+	                // Handle the case where the product is not found
+	                throw new ProductNotFoundException("Product not found");
+	            }
+	        } else {
+	            // Handle the case where the user is not found
+	            throw new UserNotFoundException("User not found");
+	        }
+	    }
+
+	    // Get cart contents for a user
+	    public List<Product> getCartContents(int userId) {
+	        // TODO: Implement logic to retrieve the contents of the user's cart
+	        // You may need to fetch the cart details from your database or cache
+	        return Collections.emptyList(); // Replace this with your logic
+	    }
+
+	    // Other methods to manage the cart
+	}
+	
+	
+}

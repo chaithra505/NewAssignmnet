@@ -1,0 +1,91 @@
+package com.sonata.service;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sonata.dto.ShoppingCartRequest;
+import com.sonata.dto.ShoppingCartResponce;
+import com.sonata.exception.ProductNotFoundException;
+import com.sonata.exception.UserNotFoundException;
+import com.sonata.model.Cart;
+import com.sonata.model.Product;
+import com.sonata.model.UserDto;
+import com.sonata.repo.CartRepo;
+
+@Service
+public class CartService {
+	
+	@Autowired
+	 private  CartRepo cartRepo;
+
+	 @Autowired
+	   private RestTemplate restTemplate;
+	 
+	 
+	
+
+
+	 public ShoppingCartResponce processAddRequest(int userId, List<ShoppingCartRequest> shoppingCartRequest) {
+		    Cart cart = cartRepo.findByUserId(userId);
+
+		    if (cart == null) {
+		        cart = new Cart();
+		        cart.setUserId(userId);
+		    }
+
+		    for (ShoppingCartRequest request : shoppingCartRequest) {
+		        int productId = request.getpId();
+		        int quantity = request.getQuantity();
+
+		        Product existingItem = cart.findCartItemByProductId(productId);
+
+		        if (existingItem != null) {
+		            existingItem.setQuantity(existingItem.getQuantity() + quantity);
+		        } else {
+		            // Fetch product details from the product service
+		            Product product = getProductDetailsFromProductService(productId);
+
+		            if (product != null) {
+		                Product newItem = new Product(product); // Assuming a copy constructor in Product class
+		                newItem.setQuantity(quantity);
+		                cart.getCartItems().add(newItem);
+		            }
+		        }
+		    }
+
+		    cartRepo.save(cart);
+		    return createShoppingCartResponse(cart);
+		}
+
+		private Product getProductDetailsFromProductService(int productId) {
+		    // Implement the logic to fetch product details from the product service
+		    // Return a Product object or null if not found
+		}
+
+		private ShoppingCartResponce createShoppingCartResponse(Cart cart) {
+		    // Implement logic to create a ShoppingCartResponce object
+		    // You need to set userId, cartId, totalItems, totalCost, and products in the response
+		    // This might involve converting the cart and its items to the desired format
+		    return new ShoppingCartResponce();
+		}
+
+	
+
+	 
+	
+	
+	
+}

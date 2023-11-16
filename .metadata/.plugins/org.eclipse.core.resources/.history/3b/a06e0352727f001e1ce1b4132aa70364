@@ -1,0 +1,104 @@
+package com.sonata.service;
+
+import java.util.List;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+import com.sonata.dto.ShoppingCartRequest;
+import com.sonata.dto.ShoppingCartResponce;
+import com.sonata.model.Cart;
+import com.sonata.model.Product;
+
+
+
+@Service 
+public class CartService {
+	
+//	@Autowired
+//	private WebClient.Builder webBuilder;
+//
+//	public ShoppingCartResponce procesAddRequest(int uId, List<ShoppingCartRequest> shoppingCartRequest) {
+//		//call product-service
+//		
+//		String productserviceurl="http://localhost:8082/product/findAll/"+shoppingCartRequest.stream().map(e->String.valueOf(e.getpId())).collect(Collectors.joining());
+//		
+//		List<Product> ProductServiceList=webBuilder.build()
+//				.get()
+//				.uri()
+//				.retrive()
+//				.bodyToFlux(Product.class)
+//				.collectList()
+//				.block();
+//		
+//		
+//		//calculate total cost
+//		final double[] totalCost= {0.0};
+//		ProductServiceList.forEach(psl -> {
+//			shoppingCartRequest.forEach(scr->{
+//				if(psl.getpId()==scr.getpId()) {
+//					psl.setQuantity(scr.getQuantity());
+//					totalCost[0]=totalCost[0]+psl.getPrice()*scr.getQuantity();
+//					
+//					
+//				}
+//				
+//			});
+//		});
+//		
+//				
+//		
+//		
+//		return null;
+//	}
+//	
+	
+	
+	
+	
+	@Autowired
+	private WebClient.Builder webBuilder;
+
+	public ShoppingCartResponce processAddRequest(int uId, List<ShoppingCartRequest> shoppingCartRequest) {
+	    // Call product-service
+	    String productserviceurl = "http://localhost:8082/product/findAll/" +
+	            shoppingCartRequest.stream().map(e -> String.valueOf(e.getpId())).collect(Collectors.joining(","));
+
+	    List<Product> ProductServiceList = webBuilder.build()
+	            .get()
+	            .uri(productserviceurl) // Pass the URI here
+	            .retrieve() // Fix typo
+	            .bodyToFlux(Product.class)
+	            .collectList()
+	            .block();
+
+	    // Calculate total cost
+	    final double[] totalCost = {0.0};
+	    ProductServiceList.forEach(psl -> {
+	        shoppingCartRequest.forEach(scr -> {
+	            if (psl.getpId() == scr.getpId()) {
+	                psl.setQuantity(scr.getQuantity());
+	                totalCost[0] = totalCost[0] + psl.getPrice() * scr.getQuantity();
+	            }
+	        });
+	    });
+
+	   
+	    //create cart
+	    
+	    int randomCartId = (int) (Math.random() * Math.pow(10, 10));
+	   
+	    Cart cart = new Cart();
+	    cart.setUId(uId);
+	    cart.setCartId(randomCartId);
+	    
+
+	    
+	    
+	}
+
+	
+
+}

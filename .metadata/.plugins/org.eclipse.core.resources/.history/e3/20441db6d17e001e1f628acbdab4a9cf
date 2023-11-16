@@ -1,0 +1,12 @@
+package com.sonata.repo;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.sonata.model.Category;
+
+public interface CatgoryRepo extends JpaRepository<Category, Integer> {
+
+	Category findByCategoryName(String categoryName);
+
+
+}

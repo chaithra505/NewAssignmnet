@@ -1,0 +1,133 @@
+package com.sonata.service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sonata.dto.ShoppingCartRequest;
+import com.sonata.dto.ShoppingCartResponce;
+import com.sonata.model.Cart;
+import com.sonata.model.Product;
+import com.sonata.repo.CartRepo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+
+
+
+@Service 
+public class CartService {
+
+	@Autowired
+	private WebClient.Builder webBuilder;
+	
+	@Autowired
+	private CartRepo cartrepo;
+	
+	
+
+	public ShoppingCartResponce processAddRequest(int uId, List<ShoppingCartRequest> shoppingCartRequest) {
+		ObjectMapper mapper = new ObjectMapper();
+	    // Call product-service
+	    String productserviceurl = "http://localhost:8082/product/findAll/" +
+	            shoppingCartRequest.stream().map(e -> String.valueOf(e.getpId())).collect(Collectors.joining(","));
+
+	    List<Product> ProductServiceList = webBuilder.build()
+	            .get()
+	            .uri(productserviceurl) // Pass the URI here
+	            .retrieve() // Fix typo
+	            .bodyToFlux(Product.class)
+	            .collectList()
+	            .block();
+
+	    // Calculate total cost
+	    final double[] totalCost = {0.0};
+	    ProductServiceList.forEach(psl -> {
+	        shoppingCartRequest.forEach(scr -> {
+	            if (psl.getpId() == scr.getpId()) {
+	                psl.setQuantity(scr.getQuantity());
+	                totalCost[0] = totalCost[0] + psl.getPrice() * scr.getQuantity();
+	            }
+	        });
+	    });
+
+	   
+	    //create cart
+	    
+	    int randomCartId = (int) (Math.random() * Math.pow(10, 10));
+	    Cart cart = null; // Initialize cart outside the try block
+
+	    try {
+	        cart = new Cart(); // Initialize the existing 'cart' variable
+	        cart.setuId(uId);
+	        cart.setCartId(randomCartId);
+	        cart.setTotalCost(totalCost[0]);
+
+	        String jsonProductList = mapper.writeValueAsString(ProductServiceList);
+	        // Assuming 'products' is a method, you may need to call it here with the jsonProductList parameter
+	        // products(jsonProductList).build();
+	    }
+	    catch(JsonProcessingException e) {
+	        throw new RuntimeException(e);
+	    }
+	    
+	    
+	    //save the cart
+	    cartrepo.save(cart);
+	    
+	  //create api responce
+	    ShoppingCartResponce responce = new ShoppingCartResponce() ;
+	    responce.setCartId(cart.getCartId());
+	    responce.setuId(cart.getuId());
+	    responce.setTotalItems(cart.getTotalItems());
+	    responce.setTotalCost(cart.getTotalCost());
+	    responce.setProduct(ProductServiceList);
+	    
+	    
+	    return responce;
+	    
+	    
+	}
+
+
+
+	
+	
+
+	// Assuming you have a CartRepository
+	public List<ShoppingCartResponce> getShoppingCart(int uId) {
+	    List<Cart> carts = cartrepo.findByUId(uId);
+	    List<ShoppingCartResponce> cartResponse = new ArrayList<>();
+	    ObjectMapper mapper = new ObjectMapper();
+
+	    for (Cart cart : carts) {
+	        ShoppingCartResponce response = new ShoppingCartResponce();
+	        response.setCartId(cart.getCartId());
+	        response.setuId(cart.getuId());
+	        response.setTotalItems(cart.getTotalItems());
+	        response.setTotalCost(cart.getTotalCost());
+
+	        try {
+	            List<Product> productServiceList = mapper.readValue(cart.getProducts(), new TypeReference<List<Product>>() {});
+	            response.setProduct(productServiceList);
+	        } catch (JsonProcessingException e) {
+	            throw new RuntimeException(e);
+	        }
+
+	        cartResponse.add(response);
+	    }
+
+	    return cartResponse;
+	}
+
+	
+	
+	
+
+	
+
+}
